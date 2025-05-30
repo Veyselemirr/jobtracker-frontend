@@ -11,9 +11,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="tr">
-      <body className="flex flex-col min-h-screen bg-gray-100"> {/* Arka plan rengi ve footer'ı aşağıda tutmak için */}
+      <body className="flex flex-col min-h-screen bg-gray-100">
         <Navbar />
-        <main className="flex-grow container mx-auto px-4 py-8"> {/* Ana içerik alanı */}
+        <main className="flex-grow container mx-auto px-4 py-8">
           {children}
         </main>
         <Footer />
