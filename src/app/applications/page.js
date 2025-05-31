@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Edit3, Trash2, Search, Filter, FolderSearch } from 'lucide-react'; // FolderSearch ikonu eklendi
+import { Edit3, Trash2, Search, Filter, FolderSearch } from 'lucide-react';
 
-const API_BASE_URL = 'https://localhost:7191'; // KENDİ API ADRESİNLE GÜNCELLE!
+const API_BASE_URL = 'https://localhost:7191';
 const USER_ID_FOR_TESTING = 1;
 
 const statusMapping = {
@@ -30,10 +30,10 @@ export default function ApplicationsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const router = useRouter();
-    // Arama ve filtreleme için state'ler (ileride kullanılacak)
-    // const [searchTerm, setSearchTerm] = useState('');
-    // const [statusFilterValue, setStatusFilterValue] = useState(''); // Örnek filtre state'i
-
+    const [searchTermInput, setSearchTermInput] = useState(''); // <-- İŞTE BURADA TANIMLANIYOR
+    const [statusFilterInput, setStatusFilterInput] = useState('');
+    const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+    const [appliedStatusFilter, setAppliedStatusFilter] = useState('');
     useEffect(() => {
         const fetchApplications = async () => {
             setIsLoading(true);
@@ -62,10 +62,9 @@ export default function ApplicationsPage() {
             try {
                 const response = await fetch(`${API_BASE_URL}/api/JobApplication/${applicationId}`, {
                     method: 'DELETE',
-                    // Gerekirse ek header'lar (örn: Authorization)
                 });
 
-                if (response.ok) { // Backend genellikle 200 OK veya 204 No Content döner
+                if (response.ok) {
                     setApplications(prevApplications =>
                         prevApplications.filter(app => app.id !== applicationId)
                     );
@@ -85,20 +84,39 @@ export default function ApplicationsPage() {
         router.push(`/applications/edit/${applicationId}`);
     }
 
-    // İleride filtrelenmiş başvurular burada olacak
-    // const filteredApplications = applications.filter(app => {
-    //   // Arama terimi kontrolü
-    //   const matchesSearchTerm = searchTerm ? 
-    //     (app.companyName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    //      app.position.toLowerCase().includes(searchTerm.toLowerCase())) 
-    //     : true;
-    //   // Durum filtresi kontrolü
-    //   const matchesStatus = statusFilterValue ? app.status.toString() === statusFilterValue : true;
-    //   return matchesSearchTerm && matchesStatus;
-    // });
-    // const displayApplications = searchTerm || statusFilterValue ? filteredApplications : applications;
-    const displayApplications = applications; // Şimdilik tüm başvuruları göster
+    // Filtrelenmiş başvuruları hesaplamak için useMemo kullanalım
+    const filteredApplications = useMemo(() => {
+        if (!applications) return []; // applications henüz yüklenmediyse boş dizi dön
 
+        return applications.filter(app => {
+            const companyMatch = appliedSearchTerm
+                ? app.companyName.toLowerCase().includes(appliedSearchTerm.toLowerCase())
+                : true;
+            const positionMatch = appliedSearchTerm
+                ? app.position.toLowerCase().includes(appliedSearchTerm.toLowerCase())
+                : true;
+            const statusMatch = appliedStatusFilter
+                ? app.status.toString() === appliedStatusFilter
+                : true;
+
+            // Arama terimi şirket veya pozisyonda geçiyorsa VE durum eşleşiyorsa
+            return (companyMatch || positionMatch) && statusMatch;
+        });
+    }, [applications, appliedSearchTerm, appliedStatusFilter]); // Bu bağımlılıklar değiştiğinde yeniden hesapla
+
+    const displayApplications = filteredApplications;
+
+    const handleFilterButtonClick = () => {
+        setAppliedSearchTerm(searchTermInput);
+        setAppliedStatusFilter(statusFilterInput);
+    };
+
+    const handleResetFilters = () => {
+        setSearchTermInput('');
+        setStatusFilterInput('');
+        setAppliedSearchTerm('');
+        setAppliedStatusFilter('');
+    };
 
     if (isLoading) {
         return <div className="text-center py-10"><p className="text-slate-700 text-xl">Başvurular yükleniyor...</p></div>;
@@ -114,8 +132,9 @@ export default function ApplicationsPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center  mb-8 mt-8">
-                <h1 className="text-3xl md:text-4xl font-bold mx-auto text-slate-800">
+            {/* ... (Başlık ve Yeni Başvuru Ekle Butonu) ... */}
+            <div className="flex justify-between items-center mb-10 mt-10 ">
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mx-auto">
                     İş Başvurularım
                 </h1>
                 <Link href="/applications/new" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300">
@@ -123,11 +142,12 @@ export default function ApplicationsPage() {
                 </Link>
             </div>
 
-            {/* Arama ve Filtreleme Bölümü - Güzelleştirilmiş Hali */}
-            <div className="mb-10 p-6 bg-white rounded-xl shadow-lg">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 items-end">
 
-                    <div className="lg:col-span-2">
+            {/* Arama ve Filtreleme Bölümü - Güzelleştirilmiş ve Bağlanmış Hali */}
+            <div className="mb-8 p-6 bg-white rounded-xl shadow-lg">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-4 items-end"> {/* lg:grid-cols-5 yapıldı */}
+
+                    <div className="lg:col-span-2"> {/* Arama kutusu */}
                         <label htmlFor="searchTerm" className="block text-sm font-medium text-slate-700 mb-1">
                             Ara (Şirket, Pozisyon)
                         </label>
@@ -138,22 +158,22 @@ export default function ApplicationsPage() {
                             <input
                                 type="text"
                                 id="searchTerm"
-                                // value={searchTerm}
-                                // onChange={(e) => setSearchTerm(e.target.value)}
+                                value={searchTermInput} // State'e bağlandı
+                                onChange={(e) => setSearchTermInput(e.target.value)} // State'i güncelliyor
                                 className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-sm"
                                 placeholder="Anahtar kelime girin..."
                             />
                         </div>
                     </div>
 
-                    <div>
+                    <div> {/* Durum filtresi */}
                         <label htmlFor="statusFilter" className="block text-sm font-medium text-slate-700 mb-1">
                             Durum
                         </label>
                         <select
                             id="statusFilter"
-                            // value={statusFilterValue}
-                            // onChange={(e) => setStatusFilterValue(e.target.value)}
+                            value={statusFilterInput} // State'e bağlandı
+                            onChange={(e) => setStatusFilterInput(e.target.value)} // State'i güncelliyor
                             className="w-full px-3 py-2.5 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-sm bg-white"
                         >
                             <option value="">Tüm Durumlar</option>
@@ -163,28 +183,45 @@ export default function ApplicationsPage() {
                         </select>
                     </div>
 
-                    <div className="flex space-x-2">
+                    {/* Filtrele Butonu */}
+                    <div className="sm:col-span-1"> {/* Buton için ayrılan alan */}
                         <button
-                            // onClick={handleFilter} // İleride eklenecek
+                            onClick={handleFilterButtonClick} // Handler bağlandı
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300 text-sm flex items-center justify-center">
                             <Filter size={16} className="mr-2" /> Filtrele
                         </button>
                     </div>
+                    {/* Filtreleri Temizle Butonu */}
+                    <div className="sm:col-span-1"> {/* Buton için ayrılan alan */}
+                        <button
+                            onClick={handleResetFilters}
+                            className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2.5 px-4 rounded-lg transition duration-300 text-sm flex items-center justify-center">
+                            Temizle
+                        </button>
+                    </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-4 text-center">
-                    Not: Arama ve filtreleme işlevselliği ilerleyen aşamalarda eklenecektir.
-                </p>
+                {/* Notu kaldırdım, artık işlevsel olacak */}
             </div>
 
+            {/* Başvuru Tablosu (displayApplications kullanıyor) */}
             {displayApplications.length === 0 && !isLoading ? (
+                // ... (Boş durum mesajı) ...
                 <div className="text-center py-10 bg-white p-8 rounded-xl shadow-lg">
                     <FolderSearch size={64} className="text-slate-400 mx-auto mb-4" />
-                    <p className="text-slate-600 text-xl mb-2">Henüz hiç iş başvurunuz bulunmuyor.</p>
-                    <p className="text-slate-500">Hemen ilk başvurunuzu ekleyerek takibe başlayın!</p>
+                    <p className="text-slate-600 text-xl mb-2">
+                        {(appliedSearchTerm || appliedStatusFilter) ? "Bu kriterlere uygun başvuru bulunamadı." : "Henüz hiç iş başvurunuz bulunmuyor."}
+                    </p>
+                    {!(appliedSearchTerm || appliedStatusFilter) &&
+                        <p className="text-slate-500">Hemen ilk başvurunuzu ekleyerek takibe başlayın!</p>
+                    }
+                    {(appliedSearchTerm || appliedStatusFilter) &&
+                        <button onClick={handleResetFilters} className="mt-4 text-blue-600 hover:text-blue-800 font-semibold">Filtreleri Temizle</button>
+                    }
                 </div>
             ) : (
                 <div className="bg-white shadow-xl rounded-lg overflow-x-auto mb-10">
                     <table className="w-full text-sm text-left text-slate-700">
+                        {/* ... (thead ve tbody displayApplications ile render edilecek - öncekiyle aynı) ... */}
                         <thead className="text-xs text-slate-700 uppercase bg-slate-100">
                             <tr>
                                 <th scope="col" className="px-6 py-3">Şirket Adı</th>
