@@ -1,36 +1,70 @@
-// src/app/applications/new/page.js
 'use client';
 
 import { useState } from 'react';
 
+
+const API_BASE_URL = 'https://localhost:7191';
+
 export default function NewApplicationPage() {
-    // Form alanları için state'leri tanımlayalım
     const [companyName, setCompanyName] = useState('');
     const [position, setPosition] = useState('');
     const [applicationDate, setApplicationDate] = useState(new Date().toISOString().split('T')[0]);
-    const [workModel, setWorkModel] = useState(''); const [location, setLocation] = useState('');
     const [status, setStatus] = useState('0');
+    const [location, setLocation] = useState('');
+    const [workModel, setWorkModel] = useState('');
     const [notes, setNotes] = useState('');
+    const [userId, setUserId] = useState(1); // Test için varsayılan UserId
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const newApplication = {
-            companyName,
-            position,
-            applicationDate,
-            location,
-            workModel,
-            notes,
+
+        const payloadForBackend = {
+            CompanyName: companyName,
+            Position: position,
+            AppliedDate: applicationDate,
+            Status: parseInt(status, 10),
+            Notes: notes,
+            UserId: userId,
+            Location: location,
+            WorkModel: workModel,
         };
-        console.log('Yeni Başvuru Bilgileri:', newApplication);
-        alert('Başvuru eklendi (konsola bak)!');
-        // Formu sıfırlama veya başka işlemler eklenebilir
-        setCompanyName('');
-        setPosition('');
-        setApplicationDate(new Date().toISOString().split('T')[0]);
-        setLocation('');
-        setWorkModel('');
-        setNotes('');
+
+        console.log('Backend API\'ye gönderilecek payload:', payloadForBackend);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/JobApplication`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payloadForBackend),
+            });
+
+            if (response.ok) { // Genellikle 200-299 arası durum kodları
+                const result = await response.json(); // Backend'den dönen veriyi al (oluşturulan başvuru gibi)
+                console.log('API Başarılı Cevap:', result);
+                alert('Başvuru başarıyla kaydedildi!');
+
+                // Formu sıfırla
+                setCompanyName('');
+                setPosition('');
+                setApplicationDate(new Date().toISOString().split('T')[0]);
+                setStatus('0');
+                setLocation('');
+                setWorkModel('');
+                setNotes('');
+                // setUserId(1); // Gerekirse
+            } else {
+                // API'den hata cevabı geldiyse
+                const errorData = await response.text(); // Hata mesajını metin olarak almayı dene
+                console.error('API Hata Cevabı:', response.status, response.statusText, errorData);
+                alert(`Başvuru kaydedilemedi. Sunucu hatası: ${response.status} - ${errorData || response.statusText}`);
+            }
+        } catch (error) {
+            // Network hatası veya fetch sırasında başka bir sorun oluştuysa
+            console.error('İstek Gönderilirken Hata Oluştu (Fetch):', error);
+            alert('Başvuru gönderilirken bir ağ hatası oluştu. Lütfen konsolu kontrol edin veya API\'nizin çalıştığından emin olun.');
+        }
     };
 
     const statusOptions = [
@@ -41,12 +75,14 @@ export default function NewApplicationPage() {
     ];
 
     const workModelOptions = [
-        'Seçiniz...',
-        'Yüz Yüze',
-        'Uzaktan',
-        'Hibrit',
+        { value: '', label: 'Seçiniz...' },
+        { value: 'Şirketten', label: 'Şirketten' },
+        { value: 'Uzaktan', label: 'Uzaktan' },
+        { value: 'Hibrit', label: 'Hibrit' },
     ];
+
     return (
+        // JSX yapısı burada (öncekiyle aynı, değişiklik yok)
         <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-xl">
             <h1 className="text-3xl font-bold text-slate-800 mb-8 text-center">
                 Yeni İş Başvurusu Ekle
@@ -99,45 +135,14 @@ export default function NewApplicationPage() {
                     />
                 </div>
 
-                {/* Lokasyon - Yeni Eklendi */}
-                <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">
-                        Lokasyon
-                    </label>
-                    <input
-                        type="text"
-                        id="location"
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                        placeholder="Örn: Ankara, Türkiye"
-                    />
-                </div>
-                <div>
-                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">
-                        Çalışma Şekli
-                    </label>
-                    <select
-                        id="workModel"
-                        value={workModel}
-                        onChange={(e) => setWorkModel(e.target.value)}
-                        // İstersen required yapabilirsin
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white"
-                    >
-                        {workModelOptions.map(option => (
-                            <option key={option} value={option === 'Seçiniz...' ? '' : option}>
-                                {option}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {/* Durum */}
                 <div>
                     <label htmlFor="status" className="block text-sm font-medium text-slate-700 mb-1">
                         Başvuru Durumu <span className="text-red-500">*</span>
                     </label>
                     <select
                         id="status"
-                        value={status} // String olarak tutuluyor (enum value'su)
+                        value={status}
                         onChange={(e) => setStatus(e.target.value)}
                         required
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white"
@@ -149,6 +154,41 @@ export default function NewApplicationPage() {
                         ))}
                     </select>
                 </div>
+
+                {/* Lokasyon */}
+                <div>
+                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">
+                        Lokasyon
+                    </label>
+                    <input
+                        type="text"
+                        id="location"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                        placeholder="Örn: Ankara, Türkiye / Remote"
+                    />
+                </div>
+
+                {/* Çalışma Şekli */}
+                <div>
+                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">
+                        Çalışma Şekli
+                    </label>
+                    <select
+                        id="workModel"
+                        value={workModel}
+                        onChange={(e) => setWorkModel(e.target.value)}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white"
+                    >
+                        {workModelOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
                 {/* Notlar */}
                 <div>
                     <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">
@@ -160,7 +200,7 @@ export default function NewApplicationPage() {
                         onChange={(e) => setNotes(e.target.value)}
                         rows="4"
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                        placeholder="Bu başvuruyla ilgili önemli notlar"
+                        placeholder="Bu başvuruyla ilgili önemli notlar..."
                     ></textarea>
                 </div>
 
