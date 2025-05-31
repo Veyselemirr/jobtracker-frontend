@@ -114,8 +114,8 @@ export default function ApplicationsPage() {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-8 mt-8">
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-800">
+            <div className="flex justify-between items-center  mb-8 mt-8">
+                <h1 className="text-3xl md:text-4xl font-bold mx-auto text-slate-800">
                     İş Başvurularım
                 </h1>
                 <Link href="/applications/new" className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition duration-300">
@@ -176,14 +176,14 @@ export default function ApplicationsPage() {
                 </p>
             </div>
 
-            {displayApplications.length === 0 && !isLoading ? ( // isLoading kontrolü eklendi
+            {displayApplications.length === 0 && !isLoading ? (
                 <div className="text-center py-10 bg-white p-8 rounded-xl shadow-lg">
                     <FolderSearch size={64} className="text-slate-400 mx-auto mb-4" />
                     <p className="text-slate-600 text-xl mb-2">Henüz hiç iş başvurunuz bulunmuyor.</p>
                     <p className="text-slate-500">Hemen ilk başvurunuzu ekleyerek takibe başlayın!</p>
                 </div>
             ) : (
-                <div className="bg-white shadow-xl rounded-lg overflow-x-auto">
+                <div className="bg-white shadow-xl rounded-lg overflow-x-auto mb-10">
                     <table className="w-full text-sm text-left text-slate-700">
                         <thead className="text-xs text-slate-700 uppercase bg-slate-100">
                             <tr>
@@ -199,7 +199,7 @@ export default function ApplicationsPage() {
                         </thead>
                         <tbody>
                             {displayApplications.map((app) => (
-                                <tr key={app.id} className="bg-white border-b hover:bg-slate-50">
+                                <tr key={app.id} className="bg-white border-b hover:bg-slate-50 ">
                                     <td className="px-6 py-4 font-medium text-slate-900 whitespace-nowrap">{app.companyName}</td>
                                     <td className="px-6 py-4">{app.position}</td>
                                     <td className="px-6 py-4">{formatDate(app.appliedDate)}</td>
