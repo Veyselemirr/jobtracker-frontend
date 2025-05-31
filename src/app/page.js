@@ -19,7 +19,6 @@ export default function HomePage() {
           </a>
         </div>
       </section>
-      {/* Features Section - Yeniden Düzenlenmiş Hali */}
       <section className="py-16 md:py-10 bg-slate-200 mb-8"> {/* Ana sayfa arka planıyla aynı veya çok hafif farklı olabilir */}
         <div className="container mx-auto px-6">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-16 md:mb-12">
