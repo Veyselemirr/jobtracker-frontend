@@ -1,19 +1,30 @@
+// src/app/applications/new/page.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-
+// API_BASE_URL'i projenize uygun şekilde tanımlamanız gerekecek.
 const API_BASE_URL = 'https://localhost:7191';
+// Ya da bir environment variable'dan alabilirsiniz.
+// Şimdilik fetch kısmı yorumlu olduğu için bu tanımlama kritik değil ama API'ye bağlanırken gerekecek.
 
 export default function NewApplicationPage() {
     const [companyName, setCompanyName] = useState('');
     const [position, setPosition] = useState('');
     const [applicationDate, setApplicationDate] = useState(new Date().toISOString().split('T')[0]);
-    const [status, setStatus] = useState('0');
+    const [status, setStatus] = useState('0'); // Varsayılan 'Beklemede'
     const [location, setLocation] = useState('');
     const [workModel, setWorkModel] = useState('');
+    const [interviewDate, setInterviewDate] = useState(''); // Mülakat zamanı için state
     const [notes, setNotes] = useState('');
     const [userId, setUserId] = useState(1); // Test için varsayılan UserId
+
+    // Durum değiştiğinde, eğer "Mülakat Aşamasında" değilse mülakat tarihini temizle
+    useEffect(() => {
+        if (status !== '1') { // '1', statusOptions'da "Mülakat Aşamasında"nın değeri
+            setInterviewDate('');
+        }
+    }, [status]); // Sadece status değiştiğinde çalışır
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,48 +34,50 @@ export default function NewApplicationPage() {
             Position: position,
             AppliedDate: applicationDate,
             Status: parseInt(status, 10),
-            Notes: notes,
-            UserId: userId,
             Location: location,
             WorkModel: workModel,
+            InterviewDate: interviewDate || null, // interviewDate boşsa null gönder
+            Notes: notes,
+            UserId: userId,
         };
 
-        console.log('Backend API\'ye gönderilecek payload:', payloadForBackend);
+        console.log('Yeni Başvuru Payload (Backend DTO):', payloadForBackend);
 
+
+        const API_BASE_URL = 'https://localhost:7191'; // Burayı kendi API adresinizle değiştirin
         try {
-            const response = await fetch(`${API_BASE_URL}/api/JobApplication`, {
+            const response = await fetch(`${API_BASE_URL}/api/JobApplication`, { // Endpoint'inizi kontrol edin
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    // Gerekirse diğer header'lar (örn: Authorization)
                 },
                 body: JSON.stringify(payloadForBackend),
             });
 
-            if (response.ok) { // Genellikle 200-299 arası durum kodları
-                const result = await response.json(); // Backend'den dönen veriyi al (oluşturulan başvuru gibi)
-                console.log('API Başarılı Cevap:', result);
+            if (response.ok) {
                 alert('Başvuru başarıyla kaydedildi!');
-
-                // Formu sıfırla
+                // Formu sıfırlama
                 setCompanyName('');
                 setPosition('');
                 setApplicationDate(new Date().toISOString().split('T')[0]);
                 setStatus('0');
                 setLocation('');
                 setWorkModel('');
+                setInterviewDate('');
                 setNotes('');
-                // setUserId(1); // Gerekirse
+                setUserId(1); // veya kullanıcıya göre ayarla
             } else {
-                // API'den hata cevabı geldiyse
-                const errorData = await response.text(); // Hata mesajını metin olarak almayı dene
-                console.error('API Hata Cevabı:', response.status, response.statusText, errorData);
-                alert(`Başvuru kaydedilemedi. Sunucu hatası: ${response.status} - ${errorData || response.statusText}`);
+                const errorData = await response.text(); // ya da .json()
+                console.error('API Hatası:', response.status, errorData);
+                alert(`Başvuru kaydedilemedi: ${errorData || response.statusText}`);
             }
         } catch (error) {
-            // Network hatası veya fetch sırasında başka bir sorun oluştuysa
-            console.error('İstek Gönderilirken Hata Oluştu (Fetch):', error);
-            alert('Başvuru gönderilirken bir ağ hatası oluştu. Lütfen konsolu kontrol edin veya API\'nizin çalıştığından emin olun.');
+            console.error('API isteği sırasında hata:', error);
+            alert('Bir hata oluştu. Lütfen konsolu kontrol edin.');
         }
+
+        alert('Başvuru payload hazırlandı (konsola bak)! API bağlantısı için kodu aktif etmeyi ve API_BASE_URL\'i tanımlamayı unutma.');
     };
 
     const statusOptions = [
@@ -72,19 +85,20 @@ export default function NewApplicationPage() {
         { value: '1', label: 'Mülakat Aşamasında (Interview)' },
         { value: '2', label: 'Kabul Edildi (Accepted)' },
         { value: '3', label: 'Reddedildi (Rejected)' },
+        // İsterseniz 'Süreç Devam Ediyor', 'Geri Çekildi' gibi durumları da ekleyebilirsiniz.
+        // Backend'deki ApplicationStatus enum'unuzla uyumlu olmalı.
     ];
 
     const workModelOptions = [
-        { value: '', label: 'Seçiniz...' },
+        { value: '', label: 'Seçiniz...' }, // Varsayılan boş seçenek
         { value: 'Şirketten', label: 'Şirketten' },
         { value: 'Uzaktan', label: 'Uzaktan' },
         { value: 'Hibrit', label: 'Hibrit' },
     ];
 
     return (
-        // JSX yapısı burada (öncekiyle aynı, değişiklik yok)
-        <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-xl">
-            <h1 className="text-3xl font-bold text-slate-800 mb-8 text-center">
+        <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-xl my-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-8 text-center">
                 Yeni İş Başvurusu Ekle
             </h1>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -99,7 +113,7 @@ export default function NewApplicationPage() {
                         value={companyName}
                         onChange={(e) => setCompanyName(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
                         placeholder="Örn: Google"
                     />
                 </div>
@@ -115,7 +129,7 @@ export default function NewApplicationPage() {
                         value={position}
                         onChange={(e) => setPosition(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
                         placeholder="Örn: Frontend Developer"
                     />
                 </div>
@@ -131,7 +145,7 @@ export default function NewApplicationPage() {
                         value={applicationDate}
                         onChange={(e) => setApplicationDate(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
                     />
                 </div>
 
@@ -145,62 +159,70 @@ export default function NewApplicationPage() {
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors duration-150"
                     >
                         {statusOptions.map(option => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
+                            <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
                 </div>
 
+                {/* Mülakat Zamanı (Koşullu Gösterim) */}
+                {status === '1' && ( // Sadece Durum "Mülakat Aşamasında" (value='1') ise göster
+                    <div>
+                        <label htmlFor="interviewDate" className="block text-sm font-medium text-slate-700 mb-1">
+                            Mülakat Zamanı (Tarih ve Saat)
+                            {/* Mülakat durumunda zorunlu yapmak istersen: <span className="text-red-500">*</span> */}
+                        </label>
+                        <input
+                            type="datetime-local"
+                            id="interviewDate"
+                            value={interviewDate}
+                            onChange={(e) => setInterviewDate(e.target.value)}
+                            // required // Mülakat durumunda bu alanın zorunlu olmasını isteyebilirsin
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
+                        />
+                    </div>
+                )}
+
                 {/* Lokasyon */}
                 <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">
-                        Lokasyon
-                    </label>
+                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">Lokasyon</label>
                     <input
                         type="text"
                         id="location"
                         value={location}
                         onChange={(e) => setLocation(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
                         placeholder="Örn: Ankara, Türkiye / Remote"
                     />
                 </div>
 
                 {/* Çalışma Şekli */}
                 <div>
-                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">
-                        Çalışma Şekli
-                    </label>
+                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">Çalışma Şekli</label>
                     <select
                         id="workModel"
                         value={workModel}
                         onChange={(e) => setWorkModel(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150 bg-white"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors duration-150"
                     >
                         {workModelOptions.map(option => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
+                            <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
                 </div>
 
                 {/* Notlar */}
                 <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">
-                        Notlar
-                    </label>
+                    <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">Notlar</label>
                     <textarea
                         id="notes"
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows="4"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150"
-                        placeholder="Bu başvuruyla ilgili önemli notlar..."
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
+                        placeholder="Bu başvuruyla ilgili önemli notlar, mülakat soruları, geri bildirimler..."
                     ></textarea>
                 </div>
 

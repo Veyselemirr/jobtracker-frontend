@@ -1,13 +1,12 @@
 // src/app/applications/edit/[id]/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation'; // useParams ID'yi almak, useRouter yönlendirme için
-import Link from 'next/link'; // Geri dön butonu için
+import { useState, useEffect, useCallback } from 'react'; // useCallback eklendi
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 
-const API_BASE_URL = 'https://localhost:7191'; // KENDİ API ADRESİNLE GÜNCELLE!
+const API_BASE_URL = 'https://localhost:7191';
 
-// Bu statusMapping ve workModelOptions 'Yeni Başvuru' sayfasındaki ile aynı olabilir
 const statusOptions = [
     { value: '0', label: 'Beklemede (Pending)' },
     { value: '1', label: 'Mülakat Aşamasında (Interview)' },
@@ -24,25 +23,24 @@ const workModelOptions = [
 
 export default function EditApplicationPage() {
     const router = useRouter();
-    const params = useParams(); // URL'den dinamik parametreleri almak için (örn: params.id)
+    const params = useParams();
     const applicationId = params.id;
 
-    const [application, setApplication] = useState(null); // Düzenlenecek başvuru verisi
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    // Form alanlarının state'ini tek bir obje içinde tutmak, pre-fill için daha kolay
     const [formData, setFormData] = useState({
         companyName: '',
         position: '',
         appliedDate: '',
-        status: '0', // Varsayılan
+        status: '0',
         location: '',
         workModel: '',
+        interviewDate: '', // interviewDate buraya eklendi
         notes: '',
-        userId: 1, // Bu da fetch edilen veriden veya sabit olabilir
+        userId: 1,
     });
 
-    // Başvuru verilerini çekmek için useEffect
+    // Başvuru verilerini çekmek ve formu doldurmak için useEffect
     useEffect(() => {
         if (applicationId) {
             const fetchApplicationDetails = async () => {
@@ -55,18 +53,17 @@ export default function EditApplicationPage() {
                         throw new Error(`API Hatası (${response.status}): ${errorData || response.statusText}`);
                     }
                     const data = await response.json();
-                    setApplication(data); // Ham veriyi de saklayalım (opsiyonel)
-                    // Form state'ini backend'den gelen veriyle doldur
                     setFormData({
                         companyName: data.companyName || '',
                         position: data.position || '',
-                        // Tarihi YYYY-MM-DD formatına çeviriyoruz input[type="date"] için
                         appliedDate: data.appliedDate ? new Date(data.appliedDate).toISOString().split('T')[0] : '',
-                        status: data.status !== undefined ? data.status.toString() : '0', // Backend int döner, select string value bekler
+                        status: data.status !== undefined ? data.status.toString() : '0',
                         location: data.location || '',
                         workModel: data.workModel || '',
+                        // interviewDate backend'den geliyorsa ve saat içeriyorsa ona göre formatla
+                        interviewDate: data.interviewDate ? new Date(data.interviewDate).toISOString().substring(0, 16) : '', // YYYY-MM-DDTHH:mm
                         notes: data.notes || '',
-                        userId: data.userId || 1, // Backend'den UserId geliyorsa onu kullan
+                        userId: data.userId || 1,
                     });
                 } catch (err) {
                     console.error("Başvuru detayı çekilirken hata:", err);
@@ -77,7 +74,15 @@ export default function EditApplicationPage() {
             };
             fetchApplicationDetails();
         }
-    }, [applicationId]); // applicationId değiştiğinde tekrar çalışır
+    }, [applicationId]);
+
+    // Mülakat Tarihi alanının görünürlüğünü kontrol eden useEffect
+    // Bu useEffect, Yeni Başvuru formundakiyle aynı mantıkta
+    useEffect(() => {
+        if (formData.status !== '1') { // '1' Mülakat Aşamasında'nın değeri
+            setFormData(prevData => ({ ...prevData, interviewDate: '' }));
+        }
+    }, [formData.status]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -90,19 +95,17 @@ export default function EditApplicationPage() {
     const handleUpdate = async (e) => {
         e.preventDefault();
 
-        // Backend'in JobApplicationUpdateDto'suna uygun payload
         const payloadForBackend = {
-            Id: parseInt(applicationId, 10), // ID'yi de göndermen gerekebilir DTO'ya bağlı
+            Id: parseInt(applicationId, 10),
             CompanyName: formData.companyName,
             Position: formData.position,
             AppliedDate: formData.appliedDate,
             Status: parseInt(formData.status, 10),
             Notes: formData.notes,
-            UserId: formData.userId, // DTO'da UserId varsa
-            // DİKKAT: Eğer Location ve WorkModel alanlarını da güncellemek istiyorsan,
-            // C# JobApplicationUpdateDto'nuzda ve backend Update mantığınızda bu alanlar olmalı!
+            UserId: formData.userId,
             Location: formData.location,
             WorkModel: formData.workModel,
+            InterviewDate: formData.interviewDate ? formData.interviewDate : null,
         };
 
         console.log('Güncellenecek Payload:', payloadForBackend);
@@ -110,36 +113,34 @@ export default function EditApplicationPage() {
         try {
             const response = await fetch(`${API_BASE_URL}/api/JobApplication/${applicationId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payloadForBackend),
             });
 
             if (response.ok) {
                 alert('Başvuru başarıyla güncellendi!');
-                router.push('/applications'); // Başvurularım sayfasına geri dön
+                router.push('/applications');
             } else {
                 const errorData = await response.text();
-                console.error('Güncelleme Hatası (API):', response.status, errorData);
                 alert(`Başvuru güncellenemedi: ${errorData || response.statusText}`);
             }
         } catch (err) {
-            console.error('Güncelleme Hatası (Fetch):', err);
             alert('Başvuru güncellenirken bir ağ hatası oluştu.');
         }
     };
 
     if (isLoading) return <div className="text-center py-10"><p className="text-slate-700 text-xl">Başvuru yükleniyor...</p></div>;
     if (error) return <div className="text-center py-10 bg-red-50 p-6 rounded-lg"><p className="text-red-700 text-xl font-semibold">Hata!</p><p className="text-red-600">{error}</p></div>;
-    if (!application && !isLoading) return <div className="text-center py-10"><p className="text-slate-700 text-xl">Başvuru bulunamadı.</p></div>;
+    // !formData.companyName kontrolü eklendi, ilk yüklemede boş olabilir
+    if (!formData.companyName && !isLoading) return <div className="text-center py-10"><p className="text-slate-700 text-xl">Başvuru bulunamadı veya yüklenemedi.</p></div>;
+
 
     return (
-        <div className="max-w-2xl mx-auto bg-white p-8 mt-8 mb-8 rounded-xl shadow-xl">
-            <h1 className="text-3xl font-bold text-slate-800 mb-2 text-center">
+        <div className="max-w-2xl mx-auto bg-white p-6 md:p-8 mt-8 mb-8 rounded-xl shadow-xl">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2 text-center">
                 Başvuruyu Düzenle
             </h1>
-            {application && <p className="text-center text-slate-600 mb-8 text-lg">{application.companyName} - {application.position}</p>}
+            {formData.companyName && <p className="text-center text-slate-600 mb-8 text-lg">{formData.companyName} - {formData.position}</p>}
 
             <form onSubmit={handleUpdate} className="space-y-6">
                 {/* Şirket Adı */}
@@ -148,12 +149,8 @@ export default function EditApplicationPage() {
                         Şirket Adı <span className="text-red-500">*</span>
                     </label>
                     <input
-                        type="text"
-                        id="companyName"
-                        name="companyName" // State'i güncellemek için name attribute'u önemli
-                        value={formData.companyName}
-                        onChange={handleChange}
-                        required
+                        type="text" id="companyName" name="companyName"
+                        value={formData.companyName} onChange={handleChange} required
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
@@ -164,12 +161,8 @@ export default function EditApplicationPage() {
                         Pozisyon <span className="text-red-500">*</span>
                     </label>
                     <input
-                        type="text"
-                        id="position"
-                        name="position"
-                        value={formData.position}
-                        onChange={handleChange}
-                        required
+                        type="text" id="position" name="position"
+                        value={formData.position} onChange={handleChange} required
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
@@ -180,12 +173,8 @@ export default function EditApplicationPage() {
                         Başvuru Tarihi <span className="text-red-500">*</span>
                     </label>
                     <input
-                        type="date"
-                        id="applicationDate"
-                        name="applicationDate"
-                        value={formData.appliedDate}
-                        onChange={handleChange}
-                        required
+                        type="date" id="applicationDate" name="applicationDate"
+                        value={formData.appliedDate} onChange={handleChange} required
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
@@ -196,66 +185,57 @@ export default function EditApplicationPage() {
                         Başvuru Durumu <span className="text-red-500">*</span>
                     </label>
                     <select
-                        id="status"
-                        name="status"
-                        value={formData.status}
-                        onChange={handleChange}
-                        required
+                        id="status" name="status" value={formData.status} onChange={handleChange} required
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
                     >
                         {statusOptions.map(option => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
+                            <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
                 </div>
 
+                {/* Mülakat Zamanı (Koşullu Gösterim) */}
+                {formData.status === '1' && (
+                    <div>
+                        <label htmlFor="interviewDate" className="block text-sm font-medium text-slate-700 mb-1">
+                            Mülakat Zamanı (Tarih ve Saat)
+                        </label>
+                        <input
+                            type="datetime-local" id="interviewDate" name="interviewDate"
+                            value={formData.interviewDate} onChange={handleChange}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                )}
+
                 {/* Lokasyon */}
                 <div>
-                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">
-                        Lokasyon
-                    </label>
+                    <label htmlFor="location" className="block text-sm font-medium text-slate-700 mb-1">Lokasyon</label>
                     <input
-                        type="text"
-                        id="location"
-                        name="location"
-                        value={formData.location}
-                        onChange={handleChange}
+                        type="text" id="location" name="location"
+                        value={formData.location} onChange={handleChange}
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     />
                 </div>
 
                 {/* Çalışma Şekli */}
                 <div>
-                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">
-                        Çalışma Şekli
-                    </label>
+                    <label htmlFor="workModel" className="block text-sm font-medium text-slate-700 mb-1">Çalışma Şekli</label>
                     <select
-                        id="workModel"
-                        name="workModel"
-                        value={formData.workModel}
-                        onChange={handleChange}
+                        id="workModel" name="workModel" value={formData.workModel} onChange={handleChange}
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
                     >
                         {workModelOptions.map(option => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
+                            <option key={option.value} value={option.value}>{option.label}</option>
                         ))}
                     </select>
                 </div>
 
                 {/* Notlar */}
                 <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">
-                        Notlar
-                    </label>
+                    <label htmlFor="notes" className="block text-sm font-medium text-slate-700 mb-1">Notlar</label>
                     <textarea
-                        id="notes"
-                        name="notes"
-                        value={formData.notes}
-                        onChange={handleChange}
+                        id="notes" name="notes" value={formData.notes} onChange={handleChange}
                         rows="4"
                         className="w-full px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     ></textarea>
